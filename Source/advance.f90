@@ -1421,6 +1421,7 @@ else !predictor corrector time integrator
                                   p0_new,the_bc_tower)
 
        do n=1,nlevs
+          call destroy(Tcoeff(n))
           call destroy(hcoeff2(n))
           call destroy(Xkcoeff2(n))
           call destroy(pcoeff2(n))

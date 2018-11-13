@@ -3713,7 +3713,16 @@ contains
           call ml_edge_restriction(umac(n-1,comp),umac(n,comp),mla%mba%rr(n-1,:),comp)
        end do
     end do
+    
 
+    do n=1,nlevs
+          call destroy(slopeu(n))
+          call destroy(slopev(n))
+          if (dm .eq. 3) then
+             call destroy(slopew(n))
+          end if
+    end do
+    
   end subroutine bds_velpred
 
   subroutine bds_velpred_2d(lo,hi,dx,dt,u,ng_u,uslope,vslope,ng_s,umac,vmac,ng_um,force,ng_f)
