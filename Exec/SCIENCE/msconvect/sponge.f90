@@ -199,7 +199,7 @@ contains
         end do
     
     else
-        if (sponge_mode .ne. 2) then
+        if (sponge_mode .eq. 1) then
         ! the classical sponge, damping at a certain radial density
             !$OMP PARALLEL DO PRIVATE(i,j,x,y,r,smdamp)
                 do j = lo(2),hi(2)
@@ -236,6 +236,52 @@ contains
                 end do
             !$OMP END PARALLEL DO
        else if (sponge_mode .eq. 2) then  
+        ! a sponge that is independend of the time step
+            !$OMP PARALLEL DO PRIVATE(i,j,x,y,r,smdamp)
+                do j = lo(2),hi(2)
+                    y = prob_lo(2) + (dble(j)+HALF)*dx(2)
+                    
+                    do i = lo(1),hi(1)
+                        x = prob_lo(1) + (dble(i)+HALF)*dx(1)
+
+                        r = sqrt( (x-center(1))**2 + (y-center(2))**2 )
+                        
+                        ! Inner sponge: damps velocities at edge of star
+                        if (r >= r_sp) then
+                            if (r < r_tp) then
+                                smdamp = HALF*(ONE - cos(M_PI*(r - r_sp)/(r_tp - r_sp)))
+                            else
+                                smdamp = ONE
+                            endif
+                            sponge(i,j) = ONE / (ONE + smdamp * (sponge_kappa-ONE))
+                        endif
+
+!                        ! Outer sponge: damps velocities in the corners of the domain
+!                        if (x >= r_sp_outer .and. x>y) then
+!                            if (x < r_tp_outer) then
+!                                smdamp = HALF * &
+!                                    (ONE - cos(M_PI*(x - r_sp_outer)/(r_tp_outer - r_sp_outer)))
+!                            else
+!                                smdamp = ONE
+!                            endif
+!                            sponge(i,j) = sponge(i,j) / &
+!                                (ONE + dt * smdamp * 10.d0 * sponge_kappa)
+!                        else if (y>=r_sp_outer) then
+!                            if (y < r_tp_outer) then
+!                                smdamp = HALF * &
+!                                    (ONE - cos(M_PI*(y - r_sp_outer)/(r_tp_outer - r_sp_outer)))
+!                            else
+!                                smdamp = ONE
+!                            endif
+!                            sponge(i,j) = sponge(i,j) / &
+!                                (ONE + dt * smdamp * 10.d0 * sponge_kappa)
+!                        endif
+
+                    end do
+                end do
+            !$OMP END PARALLEL DO    
+
+       else if (sponge_mode .eq. 3) then  
         ! the classical sponge, damping all velocity components equally, but in a "box" form
             !$OMP PARALLEL DO PRIVATE(i,j,x,y,r,smdamp)
                 do j = lo(2),hi(2)
@@ -288,6 +334,7 @@ contains
                 end do
             !$OMP END PARALLEL DO    
 
+
        else
             call bl_error('Error: sponge mode not defined')
        endif
@@ -299,7 +346,7 @@ contains
 
     use geometry, only: spherical, center
     use bl_constants_module
-    use probin_module, only: prob_lo, sponge_kappa
+    use probin_module, only: prob_lo, sponge_kappa, sponge_mode
 
     integer        , intent(in   ) :: lo(:),hi(:), ng_sp
     real(kind=dp_t), intent(inout) :: sponge(lo(1)-ng_sp:,lo(2)-ng_sp:,lo(3)-ng_sp:)
@@ -329,45 +376,90 @@ contains
        !$OMP END PARALLEL DO
 
     else
+       if (sponge_mode .eq. 1) then
+        ! the classical sponge, damping at a certain radial density
+           !$OMP PARALLEL DO PRIVATE(i,j,k,x,y,z,r,smdamp)
+           do k = lo(3),hi(3)
+              z = prob_lo(3) + (dble(k)+HALF)*dx(3)
 
-       !$OMP PARALLEL DO PRIVATE(i,j,k,x,y,z,r,smdamp)
-       do k = lo(3),hi(3)
-          z = prob_lo(3) + (dble(k)+HALF)*dx(3)
+              do j = lo(2),hi(2)
+                 y = prob_lo(2) + (dble(j)+HALF)*dx(2)
+                 
+                 do i = lo(1),hi(1)
+                    x = prob_lo(1) + (dble(i)+HALF)*dx(1)
 
-          do j = lo(2),hi(2)
-             y = prob_lo(2) + (dble(j)+HALF)*dx(2)
-             
-             do i = lo(1),hi(1)
-                x = prob_lo(1) + (dble(i)+HALF)*dx(1)
+                    r = sqrt( (x-center(1))**2 + (y-center(2))**2 + (z-center(3))**2 )
+                    
+                    ! Inner sponge: damps velocities at edge of star
+                    if (r >= r_sp) then
+                       if (r < r_tp) then
+                          smdamp = HALF*(ONE - cos(M_PI*(r - r_sp)/(r_tp - r_sp)))
+                       else
+                          smdamp = ONE
+                       endif
+                       sponge(i,j,k) = ONE / (ONE + dt * smdamp * sponge_kappa)
+                    endif
 
-                r = sqrt( (x-center(1))**2 + (y-center(2))**2 + (z-center(3))**2 )
-                
-                ! Inner sponge: damps velocities at edge of star
-                if (r >= r_sp) then
-                   if (r < r_tp) then
-                      smdamp = HALF*(ONE - cos(M_PI*(r - r_sp)/(r_tp - r_sp)))
-                   else
-                      smdamp = ONE
-                   endif
-                   sponge(i,j,k) = ONE / (ONE + dt * smdamp * sponge_kappa)
-                endif
+    !                ! Outer sponge: damps velocities in the corners of the domain
+    !                if (r >= r_sp_outer) then
+    !                   if (r < r_tp_outer) then
+    !                      smdamp = HALF * &
+    !                           (ONE - cos(M_PI*(r - r_sp_outer)/(r_tp_outer - r_sp_outer)))
+    !                   else
+    !                      smdamp = ONE
+    !                   endif
+    !                   sponge(i,j,k) = sponge(i,j,k) / &
+    !                        (ONE + dt * smdamp * 10.d0 * sponge_kappa)
+    !                endif
 
-!                ! Outer sponge: damps velocities in the corners of the domain
-!                if (r >= r_sp_outer) then
-!                   if (r < r_tp_outer) then
-!                      smdamp = HALF * &
-!                           (ONE - cos(M_PI*(r - r_sp_outer)/(r_tp_outer - r_sp_outer)))
-!                   else
-!                      smdamp = ONE
-!                   endif
-!                   sponge(i,j,k) = sponge(i,j,k) / &
-!                        (ONE + dt * smdamp * 10.d0 * sponge_kappa)
-!                endif
+                 end do
+              end do
+           end do
+           !$OMP END PARALLEL DO
+     else if (sponge_mode .eq. 2) then
+        ! a sponge that is independend of the time step
+           !$OMP PARALLEL DO PRIVATE(i,j,k,x,y,z,r,smdamp)
+           do k = lo(3),hi(3)
+              z = prob_lo(3) + (dble(k)+HALF)*dx(3)
 
-             end do
-          end do
-       end do
-       !$OMP END PARALLEL DO
+              do j = lo(2),hi(2)
+                 y = prob_lo(2) + (dble(j)+HALF)*dx(2)
+                 
+                 do i = lo(1),hi(1)
+                    x = prob_lo(1) + (dble(i)+HALF)*dx(1)
+
+                    r = sqrt( (x-center(1))**2 + (y-center(2))**2 + (z-center(3))**2 )
+                    
+                    ! Inner sponge: damps velocities at edge of star
+                    if (r >= r_sp) then
+                       if (r < r_tp) then
+                          smdamp = HALF*(ONE - cos(M_PI*(r - r_sp)/(r_tp - r_sp)))
+                       else
+                          smdamp = ONE
+                       endif
+                       sponge(i,j) = ONE / (ONE + smdamp * (sponge_kappa-ONE))
+                    endif
+
+    !                ! Outer sponge: damps velocities in the corners of the domain
+    !                if (r >= r_sp_outer) then
+    !                   if (r < r_tp_outer) then
+    !                      smdamp = HALF * &
+    !                           (ONE - cos(M_PI*(r - r_sp_outer)/(r_tp_outer - r_sp_outer)))
+    !                   else
+    !                      smdamp = ONE
+    !                   endif
+    !                   sponge(i,j,k) = sponge(i,j,k) / &
+    !                        (ONE + dt * smdamp * 10.d0 * sponge_kappa)
+    !                endif
+
+                 end do
+              end do
+           end do
+           !$OMP END PARALLEL DO
+     
+     else  
+         call bl_error('Error: sponge mode not defined')
+     endif
 
     end if
 

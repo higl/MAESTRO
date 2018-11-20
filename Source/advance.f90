@@ -289,7 +289,8 @@ if (derivative_mode .and. .not. init_mode) then
         end if
         
         w0_old        = w0
-
+        gamma1bar_new = gamma1bar_old
+        
         do n=1,nlevs
            !set all derivatives to ZERO
            call setval(snew(n),ZERO,all=.true.)
@@ -667,9 +668,16 @@ if (derivative_mode .and. .not. init_mode) then
         if (do_sponge) then
             do n=1,nlevs
                 do comp=1,dm
-                    call multifab_mult_mult_c(unew(n),comp,sponge(n),1,nghost(sponge(n)))
+                    call multifab_mult_mult_c(unew(n),comp,sponge(n),1,1,nghost(sponge(n)))
                 enddo
             enddo
+            
+            ! restrict data and fill all ghost cells
+            call ml_restrict_and_fill(nlevs,unew,mla%mba%rr,the_bc_tower%bc_tower_array, &
+                                    icomp=1, &
+                                    bcomp=1, &
+                                    nc=dm, &
+                                    ng=unew(1)%ng)
         endif
      
         misc_time = misc_time + parallel_wtime() - misc_time_start
@@ -841,6 +849,22 @@ if (derivative_mode .and. .not. init_mode) then
         call hgproject(proj_type,mla,unew,uold,rhohalf,pi,gpi,dx,dt,the_bc_tower,beta0_cart,nodalrhs)
 
         call make_pi_cc(mla,pi,snew,pi_comp,the_bc_tower%bc_tower_array,beta0_cart)
+
+!        !apply the sponge
+!        if (do_sponge) then
+!            do n=1,nlevs
+!                do comp=1,dm
+!                    call multifab_mult_mult_c(unew(n),comp,sponge(n),1,1,nghost(sponge(n)))
+!                enddo
+!            enddo
+!            
+!            ! restrict data and fill all ghost cells
+!            call ml_restrict_and_fill(nlevs,unew,mla%mba%rr,the_bc_tower%bc_tower_array, &
+!                                    icomp=1, &
+!                                    bcomp=1, &
+!                                    nc=dm, &
+!                                    ng=unew(1)%ng)
+!        endif
 
         call ml_restrict_and_fill(nlevs,snew,mla%mba%rr,the_bc_tower%bc_tower_array, &
                                     icomp=pi_comp, &
