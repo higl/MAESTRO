@@ -437,7 +437,7 @@ contains
                        else
                           smdamp = ONE
                        endif
-                       sponge(i,j) = ONE / (ONE + smdamp * (sponge_kappa-ONE))
+                       sponge(i,j,k) = ONE / (ONE + smdamp * (sponge_kappa-ONE))
                     endif
 
     !                ! Outer sponge: damps velocities in the corners of the domain
